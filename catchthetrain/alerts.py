@@ -4,6 +4,21 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from .planner import Option
+from .profile import Profile
+from .timeparse import at
+
+
+def open_windows(p: Profile, now: datetime) -> list[tuple[str, datetime, datetime]]:
+    """(direction, start, end) for each of the user's alert windows open right now: on a commute
+    day, from `lead` before the window starts until it ends. Outside these, no BART calls are made."""
+    if now.weekday() not in p.days:
+        return []
+    out = []
+    for direction, (ws, we) in (("office", p.morning), ("home", p.evening)):
+        start, end = at(now, ws.hour, ws.minute), at(now, we.hour, we.minute)
+        if start - p.lead <= now <= end:
+            out.append((direction, start, end))
+    return out
 
 
 def key(direction: str, o: Option) -> str:

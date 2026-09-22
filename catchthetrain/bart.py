@@ -81,9 +81,9 @@ class Bart:
             trips.append(Trip(orig, dest, dep, arr, heads))
         return trips
 
-    async def live_summary(self, orig: str, direction: str, heads: list[str]) -> str:
-        """One-line summary of real-time departures at orig ("n"/"s"), limited to matching trains."""
-        data = await self._get("etd.aspx", {"cmd": "etd", "orig": orig, "dir": direction})
+    async def live_summary(self, orig: str, heads: list[str]) -> str:
+        """One-line summary of real-time departures at orig, limited to trains toward `heads`."""
+        data = await self._get("etd.aspx", {"cmd": "etd", "orig": orig})
         parts = []
         for station in one_or_many(data.get("root", {}).get("station")):
             for etd in one_or_many(station.get("etd")):

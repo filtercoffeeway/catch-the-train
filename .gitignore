@@ -1,6 +1,9 @@
 # Secrets and runtime state
 .env
 catchthetrain-state.json*
+*.db
+*.db-wal
+*.db-shm
 
 # Python
 .venv/

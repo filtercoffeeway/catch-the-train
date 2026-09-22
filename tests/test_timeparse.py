@@ -6,6 +6,7 @@ def test_parse_clock():
         ("9:45", False, (9, 45)), ("945", False, (9, 45)), ("6:10pm", False, (18, 10)),
         ("6:15", True, (18, 15)), ("18:10", True, (18, 10)), ("6pm", False, (18, 0)),
         ("12am", False, (0, 0)), ("3:00", True, (15, 0)),
+        ("9.45", False, (9, 45)), ("4.30", True, (16, 30)), ("6.10pm", False, (18, 10)),
     ]
     for s, pm, want in cases:
         assert parse_clock(s, pm) == want, s

@@ -10,7 +10,6 @@ from telegram.ext import Application
 from . import config
 from .bart import Bart
 from .bot import COMMANDS, CommuteBot
-from .maps import FixedDrive
 from .planner import Planner
 from .state import Store
 
@@ -22,8 +21,8 @@ def main() -> None:
 
     cfg = config.load()
     http = httpx.AsyncClient(timeout=20)
-    planner = Planner(cfg, Bart(cfg.bart_key, cfg.tz, http), FixedDrive(cfg.drive))
-    bot = CommuteBot(cfg, planner, Store(cfg.state_file))
+    store = Store(cfg.db_path)
+    bot = CommuteBot(cfg, Planner(Bart(cfg.bart_key, cfg.tz, http)), store)
 
     async def post_init(app: Application) -> None:
         await app.bot.set_my_commands(COMMANDS)
@@ -34,7 +33,7 @@ def main() -> None:
     app = (Application.builder().token(cfg.telegram_token).concurrent_updates(True)
            .post_init(post_init).post_shutdown(post_shutdown).build())
     bot.register(app)
-    logging.info("catchthetrain running; stations=%s office=%s", cfg.home_stations, cfg.office_station)
+    logging.info("catchthetrain running; %d users, db=%s", store.user_count(), cfg.db_path)
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
