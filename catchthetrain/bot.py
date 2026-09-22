@@ -8,7 +8,7 @@ from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Upd
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes, MessageHandler, filters
 
 from . import alerts
-from .config import Config, known_parking_station, station_name
+from .config import DAY_NAMES, Config, known_parking_station, station_name
 from .planner import Option, Planner
 from .state import Store
 from .timeparse import at, fmt_t, mins, next_weekday, parse_clock
@@ -132,7 +132,7 @@ class CommuteBot:
         (ms, me), (es, ee) = c.alert_morning, c.alert_evening
         today = lambda d: "done for today" if d in st.done else "active today"  # noqa: E731
         await update.message.reply_text(
-            f"🔔 Alerts are {'ON' if st.alerts_on else 'OFF'} (weekdays, {mins(c.alert_lead)} min before leave-by)\n"
+            f"🔔 Alerts are {'ON' if st.alerts_on else 'OFF'} ({_days(c.alert_days)}, {mins(c.alert_lead)} min before leave-by)\n"
             f"• Morning: leave home {_t(ms)}–{_t(me)} — {today('office')}\n"
             f"• Evening: leave office {_t(es)}–{_t(ee)} — {today('home')}\n"
             f"Turn {'off: /alerts off' if st.alerts_on else 'on: /alerts on'}")
@@ -253,7 +253,7 @@ class CommuteBot:
     async def alert_tick(self, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         c = self.cfg
         now = self.now()
-        if not c.allowed_chat or now.weekday() >= 5:
+        if not c.allowed_chat or now.weekday() not in c.alert_days:
             return
         for direction, (ws, we) in (("office", c.alert_morning), ("home", c.alert_evening)):
             start, end = at(now, ws.hour, ws.minute), at(now, we.hour, we.minute)
@@ -288,3 +288,7 @@ class CommuteBot:
 
 def _t(t) -> str:
     return fmt_t(datetime(2000, 1, 1, t.hour, t.minute))
+
+
+def _days(days) -> str:
+    return ", ".join(DAY_NAMES[d].capitalize() for d in sorted(days))

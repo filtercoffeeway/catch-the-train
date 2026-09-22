@@ -19,6 +19,8 @@ _STATION_NAME = {
     "CIVC": "Civic Center", "POWL": "Powell St", "MONT": "Montgomery St", "EMBR": "Embarcadero",
 }
 
+DAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
 
 @dataclass(frozen=True)
 class Config:
@@ -36,6 +38,7 @@ class Config:
     alert_morning: tuple[time, time]  # window of leave-home times to alert for
     alert_evening: tuple[time, time]  # window of leave-office times to alert for
     alert_lead: timedelta  # how long before a leave-by time to alert
+    alert_days: frozenset[int]  # weekdays (Mon=0) that get alerts
     state_file: str
     tz: ZoneInfo
 
@@ -67,6 +70,27 @@ def _window(key: str, default: str, pm_if_bare: bool) -> tuple[time, time]:
     return time(h1, m1), time(h2, m2)
 
 
+def parse_days(s: str) -> frozenset[int] | None:
+    """'tue', 'tue,thu' or 'mon-fri' -> weekday numbers (Mon=0); None if malformed."""
+    days: set[int] = set()
+    for part in s.lower().replace(" ", "").split(","):
+        ends = [d[:3] for d in part.split("-")]
+        if not 1 <= len(ends) <= 2 or any(d not in DAY_NAMES for d in ends):
+            return None
+        a, b = DAY_NAMES.index(ends[0]), DAY_NAMES.index(ends[-1])
+        if b < a:
+            return None
+        days.update(range(a, b + 1))
+    return frozenset(days)
+
+
+def _days(key: str, default: str) -> frozenset[int]:
+    days = parse_days(env(key, default))
+    if days is None:
+        raise SystemExit(f"{key} must look like tue or mon-fri or tue,thu")
+    return days
+
+
 def load() -> Config:
     return Config(
         telegram_token=_required("TELEGRAM_TOKEN"),
@@ -83,6 +107,7 @@ def load() -> Config:
         alert_morning=_window("ALERT_MORNING", "9:30-10:30", pm_if_bare=False),
         alert_evening=_window("ALERT_EVENING", "3:00-4:30", pm_if_bare=True),
         alert_lead=_minutes("ALERT_LEAD_MIN", 10),
+        alert_days=_days("ALERT_DAYS", "mon-fri"),
         state_file=env("STATE_FILE", "catchthetrain-state.json"),
         tz=ZoneInfo("America/Los_Angeles"),
     )

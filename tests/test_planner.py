@@ -19,7 +19,7 @@ def cfg() -> Config:
         home_stations=["UCTY"], office_station="CIVC",
         park_walk=7 * MIN, office_walk=10 * MIN, buffer=3 * MIN, drive=20 * MIN,
         alert_morning=(time(9, 30), time(10, 30)), alert_evening=(time(15), time(16, 30)),
-        alert_lead=10 * MIN, state_file="x", tz=TZ,
+        alert_lead=10 * MIN, alert_days=frozenset(range(5)), state_file="x", tz=TZ,
     )
 
 
