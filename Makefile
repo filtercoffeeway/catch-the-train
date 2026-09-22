@@ -11,7 +11,7 @@ test:
 	$(PY) -m pytest -q
 
 run:
-	set -a && . ./.env && set +a && $(PY) -m commutehelper
+	set -a && . ./.env && set +a && $(PY) -m catchthetrain
 
 clean:
 	rm -rf $(VENV) *.egg-info

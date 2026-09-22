@@ -1,0 +1,16 @@
+[Unit]
+Description=Catch The Train BART Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/etc/catchthetrain.env
+DynamicUser=yes
+StateDirectory=catchthetrain
+WorkingDirectory=/var/lib/catchthetrain
+ExecStart=/opt/catchthetrain/.venv/bin/python -m catchthetrain
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

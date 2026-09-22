@@ -1,4 +1,4 @@
-"""Entry point: python -m commutehelper"""
+"""Entry point: python -m catchthetrain"""
 from __future__ import annotations
 
 import logging
@@ -34,7 +34,7 @@ def main() -> None:
     app = (Application.builder().token(cfg.telegram_token).concurrent_updates(True)
            .post_init(post_init).post_shutdown(post_shutdown).build())
     bot.register(app)
-    logging.info("commutehelper running; stations=%s office=%s", cfg.home_stations, cfg.office_station)
+    logging.info("catchthetrain running; stations=%s office=%s", cfg.home_stations, cfg.office_station)
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

@@ -1,4 +1,4 @@
-from commutehelper.timeparse import parse_clock
+from catchthetrain.timeparse import parse_clock
 
 
 def test_parse_clock():

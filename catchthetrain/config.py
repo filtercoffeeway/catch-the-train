@@ -83,7 +83,7 @@ def load() -> Config:
         alert_morning=_window("ALERT_MORNING", "9:30-10:30", pm_if_bare=False),
         alert_evening=_window("ALERT_EVENING", "3:00-4:30", pm_if_bare=True),
         alert_lead=_minutes("ALERT_LEAD_MIN", 10),
-        state_file=env("STATE_FILE", "commutehelper-state.json"),
+        state_file=env("STATE_FILE", "catchthetrain-state.json"),
         tz=ZoneInfo("America/Los_Angeles"),
     )
 

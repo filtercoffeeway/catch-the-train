@@ -7,7 +7,7 @@ traffic-aware Routes API (currently a fixed drive time set by `DRIVE_MIN` in `.e
 
 ## Layout
 ```
-commutehelper/
+catchthetrain/
   __main__.py   entry point: wires everything together
   config.py     env-based config, station addresses/names
   bart.py       BART schedule + real-time departures client
@@ -62,10 +62,10 @@ the car is at, so evening plans route you back to it.
 
 ## Deploy (Linux / OCI Ampere / Raspberry Pi)
 ```bash
-rsync -a --exclude .venv --exclude .env ./ server:/opt/commutehelper/
-ssh server 'cd /opt/commutehelper && python3 -m venv .venv && .venv/bin/pip install .'
-scp .env server:/etc/commutehelper.env
-ssh server 'sudo cp /opt/commutehelper/deploy/commutehelper.service /etc/systemd/system/ \
-  && sudo systemctl daemon-reload && sudo systemctl enable --now commutehelper'
+rsync -a --exclude .venv --exclude .env ./ server:/opt/catchthetrain/
+ssh server 'cd /opt/catchthetrain && python3 -m venv .venv && .venv/bin/pip install .'
+scp .env server:/etc/catchthetrain.env
+ssh server 'sudo cp /opt/catchthetrain/deploy/catchthetrain.service /etc/systemd/system/ \
+  && sudo systemctl daemon-reload && sudo systemctl enable --now catchthetrain'
 ```
 The bot polls Telegram, so no inbound ports need to be open.

@@ -2,11 +2,11 @@ import asyncio
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from commutehelper import alerts
-from commutehelper.bart import Trip
-from commutehelper.config import Config
-from commutehelper.maps import FixedDrive
-from commutehelper.planner import Planner
+from catchthetrain import alerts
+from catchthetrain.bart import Trip
+from catchthetrain.config import Config
+from catchthetrain.maps import FixedDrive
+from catchthetrain.planner import Planner
 
 TZ = ZoneInfo("America/Los_Angeles")
 MIN = timedelta(minutes=1)
