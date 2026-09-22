@@ -1,0 +1,16 @@
+[Unit]
+Description=Catch The Train (CommuteHelper) BART Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=/etc/commutehelper.env
+DynamicUser=yes
+StateDirectory=commutehelper
+WorkingDirectory=/var/lib/commutehelper
+ExecStart=/opt/commutehelper/.venv/bin/python -m commutehelper
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

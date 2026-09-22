@@ -1,0 +1,23 @@
+[project]
+name = "commutehelper"
+version = "0.2.0"
+description = "Telegram bot that tells you when to leave for a drive + BART commute"
+requires-python = ">=3.10"
+dependencies = [
+    "python-telegram-bot[job-queue]>=21.0,<23",
+    "httpx>=0.27",
+    "tzdata",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+commutehelper = "commutehelper.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["commutehelper"]
