@@ -51,6 +51,9 @@ Send `/start`. The bot asks for:
 5. Commute days (`tue`, `tue,thu`, `mon-fri`)
 6. Morning and evening alert windows (e.g. `7:30-9:30`, `5-6:30`)
 
+Stations can be given by code or name (`civic center`, `CIVC`). Typos and ambiguous
+names get a "Did you mean…?" reply with one-tap buttons.
+
 | Command | Meaning |
 |---|---|
 | `/tooffice` | Buttons: **Next available** / **Next 4 options** — when to leave home |
