@@ -1,6 +1,7 @@
 """BART station catalog and lookup by code or name."""
 from __future__ import annotations
 
+import difflib
 import re
 
 NAMES = {
@@ -32,6 +33,20 @@ def _norm(s: str) -> str:
 
 # Each name plus its "/"-separated parts, so "Warm Springs" and "South Fremont" both find WARM.
 _PARTS = {code: {_norm(p) for p in [name, *name.split("/")]} for code, name in NAMES.items()}
+# What typos are compared against: codes, names, name parts and longer words ("berkly" -> "berkeley").
+_FUZZY: dict[str, list[str]] = {}
+for _code, _parts in _PARTS.items():
+    for _key in {_code.lower(), *_parts, *(w for p in _parts for w in p.split() if len(w) >= 4)}:
+        _FUZZY.setdefault(_key, []).append(_code)
+MAX_FIX_BYTES = 48  # corrected answers ride in Telegram callback data (64-byte limit)
+
+
+class StationError(ValueError):
+    """A station answer that didn't resolve, with corrected answers to offer as one-tap buttons."""
+
+    def __init__(self, msg: str, fixes: list[tuple[str, str]]):
+        super().__init__(msg)
+        self.fixes = fixes  # (button label, corrected answer)
 
 
 def find(text: str) -> list[str]:
@@ -50,25 +65,54 @@ def find(text: str) -> list[str]:
     return []
 
 
+def close_matches(text: str) -> list[str]:
+    """Codes of stations whose code or name is spelled close to `text`, best first ("civc center")."""
+    q = _norm(text)
+    scored = sorted(((difflib.SequenceMatcher(None, q, k).ratio(), k) for k in _FUZZY), reverse=True)
+    if not scored or scored[0][0] < 0.75:
+        return []
+    # Keep only near-ties with the best match, so one clear winner isn't diluted.
+    hits = [k for score, k in scored if score >= scored[0][0] - 0.05]
+    return list(dict.fromkeys(code for h in hits for code in _FUZZY[h]))[:3]
+
+
+def _best(part: str) -> str:
+    """`part` as a code if it's unambiguous or has a clear close match, else unchanged."""
+    hits = find(part)
+    if len(hits) == 1:
+        return hits[0]
+    close = close_matches(part) if not hits else []
+    return close[0] if len(close) == 1 else part
+
+
 def parse_stations(text: str) -> list[str]:
-    """'Union City, WARM' -> ['UCTY', 'WARM']. ValueError says which part is unknown or ambiguous."""
-    codes: list[str] = []
+    """'Union City, WARM' -> ['UCTY', 'WARM']. StationError says which part is unknown or ambiguous,
+    and offers the whole answer corrected for each likely station."""
+    parts: list[str] = []
     for part in re.split(r",|&|\+|\band\b", text):
-        if not part.strip():
-            continue
         words = part.split()
         if len(words) > 1 and all(w.upper() in NAMES for w in words):  # "UCTY WARM"
-            hits_per_part = [[w.upper()] for w in words]
-        else:
-            hits_per_part = [find(part)]
-        for hits in hits_per_part:
-            if not hits:
-                raise ValueError(f"I don't know a BART station called “{part.strip()}”.")
-            if len(hits) > 1:
-                options = ", ".join(f"{station_name(c)} ({c})" for c in hits[:6])
-                raise ValueError(f"“{part.strip()}” could be {options}. Which one?")
+            parts += words
+        elif words:
+            parts.append(part.strip())
+    if not parts:
+        raise ValueError("Send a station name or code, like Union City or UCTY.")
+    codes: list[str] = []
+    for i, part in enumerate(parts):
+        hits = find(part)
+        if len(hits) == 1:
             if hits[0] not in codes:
                 codes.append(hits[0])
-    if not codes:
-        raise ValueError("Send a station name or code, like Union City or UCTY.")
+            continue
+        if hits:
+            options = hits[:6]
+            msg = f"“{part}” could be {' or '.join(station_name(c) for c in options)}. Which one?"
+        else:
+            options = close_matches(part)
+            msg = f"I don't know a BART station called “{part}”."
+            if options:
+                msg += f" Did you mean {' or '.join(station_name(c) for c in options)}?"
+        rest = [_best(p) for p in parts[i + 1:]]
+        fixes = [(station_name(c), ", ".join([*codes, c, *rest])) for c in options]
+        raise StationError(msg, [(label, a) for label, a in fixes if len(a.encode()) <= MAX_FIX_BYTES])
     return codes

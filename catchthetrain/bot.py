@@ -220,7 +220,8 @@ class CommuteBot:
                 w["draft"].update(f.parse(text.strip(), w["draft"]))
             except ValueError as e:
                 log.info("chat %s: rejected %s answer %r: %s", chat, f.key, text, e)
-                await ctx.bot.send_message(chat, f"⚠️ {e}")
+                fixes = [(label, f"w|{f.key}|{answer}") for label, answer in getattr(e, "fixes", [])]
+                await ctx.bot.send_message(chat, f"⚠️ {e}", reply_markup=keyboard(*fixes, cols=1) if fixes else None)
                 return
         w["steps"].pop(0)
         if w["steps"]:
