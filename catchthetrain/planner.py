@@ -1,4 +1,4 @@
-"""Combines train schedules and drive times into leave-by times."""
+"""Combines train schedules with a user's drive and walk times into leave-by times."""
 from __future__ import annotations
 
 import asyncio
@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from .bart import Bart, Trip
-from .config import Config, station_address
-from .maps import Maps
+from .profile import Profile
 
 
 @dataclass(frozen=True)
@@ -27,64 +26,57 @@ def drop_dominated(opts: list[Option]) -> list[Option]:
 
 
 class Planner:
-    def __init__(self, cfg: Config, bart: Bart, maps: Maps):
-        self.cfg, self.bart, self.maps = cfg, bart, maps
+    def __init__(self, bart: Bart):
+        self.bart = bart
 
-    async def to_office(self, now: datetime, count: int) -> tuple[list[Option], list[str]]:
+    async def to_office(self, p: Profile, now: datetime, count: int) -> tuple[list[Option], list[str]]:
         """The next `count` ways to the office you can still make, soonest leave time first."""
         results = await asyncio.gather(
-            *(self._office_from(st, now) for st in self.cfg.home_stations), return_exceptions=True)
+            *(self._office_from(p, st, now) for st in p.home_stations), return_exceptions=True)
         opts, errs = _collect(results)
         opts = sorted(drop_dominated(opts), key=lambda o: o.leave)
         return opts[:count], errs
 
-    async def _office_from(self, st: str, now: datetime) -> list[Option]:
-        c = self.cfg
-        drive_now = await self.maps.drive_time(c.home_addr, station_address(st), now)
-        trips = await self.bart.depart(st, c.office_station, now + drive_now + c.park_walk + c.buffer)
+    async def _office_from(self, p: Profile, st: str, now: datetime) -> list[Option]:
+        drive = p.drive[st]
+        trips = await self.bart.depart(st, p.office_station, now + drive + p.park_walk + p.buffer)
         opts = []
         for t in trips:
-            at_lot = t.depart - c.park_walk - c.buffer
-            drive = await self.maps.drive_time(c.home_addr, station_address(st), at_lot - drive_now)
-            leave = at_lot - drive
+            leave = t.depart - p.park_walk - p.buffer - drive
             if leave >= now:
-                opts.append(Option(st, t, drive, leave, t.arrive + c.office_walk))
+                opts.append(Option(st, t, drive, leave, t.arrive + p.office_walk))
         return opts
 
-    async def to_office_by(self, deadline: datetime, now: datetime) -> tuple[list[Option], list[str]]:
+    async def to_office_by(self, p: Profile, deadline: datetime, now: datetime) -> tuple[list[Option], list[str]]:
         """Ways to reach the office in the 30 minutes before `deadline`, latest leave time first."""
         results = await asyncio.gather(
-            *(self._office_by_from(st, deadline, now) for st in self.cfg.home_stations), return_exceptions=True)
+            *(self._office_by_from(p, st, deadline, now) for st in p.home_stations), return_exceptions=True)
         opts, errs = _collect(results)
         return sorted(drop_dominated(opts), key=lambda o: o.leave, reverse=True), errs
 
-    async def _office_by_from(self, st: str, deadline: datetime, now: datetime) -> list[Option]:
-        c = self.cfg
+    async def _office_by_from(self, p: Profile, st: str, deadline: datetime, now: datetime) -> list[Option]:
         earliest = deadline - timedelta(minutes=30)
-        trips = await self.bart.arrive(st, c.office_station, deadline - c.office_walk)
+        drive = p.drive[st]
+        trips = await self.bart.arrive(st, p.office_station, deadline - p.office_walk)
         opts = []
         for t in trips:
-            at_office = t.arrive + c.office_walk
+            at_office = t.arrive + p.office_walk
             if not earliest <= at_office <= deadline:
                 continue
-            at_lot = t.depart - c.park_walk - c.buffer
-            drive = await self.maps.drive_time(c.home_addr, station_address(st), at_lot - timedelta(minutes=15))
-            leave = at_lot - drive
+            leave = t.depart - p.park_walk - p.buffer - drive
             if leave >= now:
                 opts.append(Option(st, t, drive, leave, at_office))
         return opts
 
-    async def to_home(self, leave_at: datetime, st: str, count: int) -> list[Option]:
+    async def to_home(self, p: Profile, leave_at: datetime, st: str, count: int) -> list[Option]:
         """The next `count` trains home after leave_at, with the car parked at station st."""
-        c = self.cfg
-        at_platform = leave_at + c.office_walk + c.buffer
-        trips = await self.bart.depart(c.office_station, st, at_platform)
+        at_platform = leave_at + p.office_walk + p.buffer
+        trips = await self.bart.depart(p.office_station, st, at_platform)
         trips = [t for t in trips if t.depart >= at_platform][:count]
-        drives = await asyncio.gather(
-            *(self.maps.drive_time(station_address(st), c.home_addr, t.arrive + c.park_walk) for t in trips))
+        drive = p.drive[st]
         return [
-            Option(st, t, d, t.depart - c.office_walk - c.buffer, t.arrive + c.park_walk + d)
-            for t, d in zip(trips, drives)
+            Option(st, t, drive, t.depart - p.office_walk - p.buffer, t.arrive + p.park_walk + drive)
+            for t in trips
         ]
 
 

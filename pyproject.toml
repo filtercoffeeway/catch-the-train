@@ -1,6 +1,6 @@
 [project]
 name = "catchthetrain"
-version = "0.2.0"
+version = "0.3.0"
 description = "Telegram bot that tells you when to leave for a drive + BART commute"
 requires-python = ">=3.10"
 dependencies = [
