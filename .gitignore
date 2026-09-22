@@ -11,3 +11,4 @@ __pycache__/
 # IDE / OS
 .idea/
 .DS_Store
+commutehelper-state.json*
