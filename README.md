@@ -102,39 +102,48 @@ alerts are turned off.
 
 Only run one copy per bot token: Telegram lets only one process poll at a time.
 
-## Deploy (Raspberry Pi / Linux)
-Currently runs on **bravo** as `catchthetrain.service` (see Deployment in CLAUDE.md).
-```bash
-deploy/deploy.sh bravo             # rerunnable: code, venv, unit, restart
-deploy/deploy.sh bravo --seed-db   # first deploy only: also copy the local DB
-```
-| Piece | Location on the Pi |
-|---|---|
-| Code + venv | `/opt/catchthetrain` (owner: `catchthetrain` user) |
-| Secrets | `/etc/catchthetrain/env` (mode 600, root; created from local `.env` once, never overwritten) |
-| Database | `/var/lib/catchthetrain/catchthetrain.db` |
+## Deploy to a server (Raspberry Pi / any Debian-style Linux)
+`deploy/deploy.sh <host>` installs and runs the bot as a systemd service over ssh. `<host>` is
+anything `ssh` accepts (an alias from `~/.ssh/config`, `user@hostname`, ...).
+
+Requirements:
+- On your machine: `ssh`, `rsync`, and a local `.env` with `TELEGRAM_TOKEN` set. `sqlite3` is needed only for `--seed-db`.
+- On the server: systemd, Python 3.10+ with `venv`, `rsync`, and a login with passwordless `sudo`.
 
 ```bash
-ssh bravo journalctl -u catchthetrain -f      # logs
-ssh bravo sudo systemctl restart catchthetrain
-ssh bravo sudo systemctl stop catchthetrain   # stop (do this before running the bot anywhere else)
+deploy/deploy.sh myserver              # rerunnable: code, venv, unit, restart
+deploy/deploy.sh myserver --seed-db    # first deploy only: also copy your local catchthetrain.db
 ```
-### Shipping a code change
-From the repo root on the Mac:
+| Piece | Location on the server |
+|---|---|
+| Code + venv | `/opt/catchthetrain` (owner: `catchthetrain` system user, created by the script) |
+| Secrets | `/etc/catchthetrain/env` (mode 600, root; created from your local `.env` once, never overwritten) |
+| Database | `/var/lib/catchthetrain/catchthetrain.db` |
+| Service | `catchthetrain.service`, enabled at boot, logs in the journal |
+
+Day-to-day:
 ```bash
-make test && deploy/deploy.sh bravo
+ssh myserver journalctl -u catchthetrain -f      # logs
+ssh myserver sudo systemctl restart catchthetrain
+ssh myserver sudo systemctl stop catchthetrain   # stop (do this before running the bot anywhere else)
+```
+
+### Shipping a code change
+From the repo root:
+```bash
+make test && deploy/deploy.sh myserver
 ```
 Tests run first; the deploy is skipped if any fail. It syncs the code, reinstalls into the venv,
 restarts the service and prints `active` / `enabled`. Secrets and the database are left alone.
 
-Then check it on the Pi and try it in Telegram (tests don't cover Telegram or BART):
+Then check the server and try it in Telegram (tests don't cover Telegram or BART):
 ```bash
-ssh bravo journalctl -u catchthetrain -n 30 --no-pager   # startup errors
-ssh bravo journalctl -u catchthetrain -f                 # follow live while testing
+ssh myserver journalctl -u catchthetrain -n 30 --no-pager   # startup errors
+ssh myserver journalctl -u catchthetrain -f                 # follow live while testing
 ```
-- Don't `make run` locally while bravo's copy is running (two pollers on one token give `409 Conflict`).
-  To test locally, `ssh bravo sudo systemctl stop catchthetrain` first, then redeploy afterwards.
-- New or changed env var: edit `/etc/catchthetrain/env` on the Pi (`ssh bravo sudo nano /etc/catchthetrain/env`),
-  then `ssh bravo sudo systemctl restart catchthetrain`. The deploy script never rewrites that file.
+- Don't `make run` locally while the server's copy is running (two pollers on one token give `409 Conflict`).
+  To test locally, `ssh myserver sudo systemctl stop catchthetrain` first, then redeploy afterwards.
+- New or changed env var: edit `/etc/catchthetrain/env` on the server (`ssh myserver sudo nano /etc/catchthetrain/env`),
+  then `ssh myserver sudo systemctl restart catchthetrain`. The deploy script never rewrites that file.
 
 Back up `catchthetrain.db` to keep users' settings.
