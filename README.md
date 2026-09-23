@@ -102,13 +102,39 @@ alerts are turned off.
 
 Only run one copy per bot token: Telegram lets only one process poll at a time.
 
-## Deploy (Linux / OCI Ampere / Raspberry Pi)
+## Deploy (Raspberry Pi / Linux)
+Currently runs on **bravo** as `catchthetrain.service` (see Deployment in CLAUDE.md).
 ```bash
-rsync -a --exclude .venv --exclude .env --exclude '*.db*' ./ server:/opt/catchthetrain/
-ssh server 'cd /opt/catchthetrain && python3 -m venv .venv && .venv/bin/pip install .'
-scp .env server:/etc/catchthetrain.env
-ssh server 'sudo cp /opt/catchthetrain/deploy/catchthetrain.service /etc/systemd/system/ \
-  && sudo systemctl daemon-reload && sudo systemctl enable --now catchthetrain'
+deploy/deploy.sh bravo             # rerunnable: code, venv, unit, restart
+deploy/deploy.sh bravo --seed-db   # first deploy only: also copy the local DB
 ```
-The database lives in `/var/lib/catchthetrain/` (the unit's working directory).
+| Piece | Location on the Pi |
+|---|---|
+| Code + venv | `/opt/catchthetrain` (owner: `catchthetrain` user) |
+| Secrets | `/etc/catchthetrain/env` (mode 600, root; created from local `.env` once, never overwritten) |
+| Database | `/var/lib/catchthetrain/catchthetrain.db` |
+
+```bash
+ssh bravo journalctl -u catchthetrain -f      # logs
+ssh bravo sudo systemctl restart catchthetrain
+ssh bravo sudo systemctl stop catchthetrain   # stop (do this before running the bot anywhere else)
+```
+### Shipping a code change
+From the repo root on the Mac:
+```bash
+make test && deploy/deploy.sh bravo
+```
+Tests run first; the deploy is skipped if any fail. It syncs the code, reinstalls into the venv,
+restarts the service and prints `active` / `enabled`. Secrets and the database are left alone.
+
+Then check it on the Pi and try it in Telegram (tests don't cover Telegram or BART):
+```bash
+ssh bravo journalctl -u catchthetrain -n 30 --no-pager   # startup errors
+ssh bravo journalctl -u catchthetrain -f                 # follow live while testing
+```
+- Don't `make run` locally while bravo's copy is running (two pollers on one token give `409 Conflict`).
+  To test locally, `ssh bravo sudo systemctl stop catchthetrain` first, then redeploy afterwards.
+- New or changed env var: edit `/etc/catchthetrain/env` on the Pi (`ssh bravo sudo nano /etc/catchthetrain/env`),
+  then `ssh bravo sudo systemctl restart catchthetrain`. The deploy script never rewrites that file.
+
 Back up `catchthetrain.db` to keep users' settings.

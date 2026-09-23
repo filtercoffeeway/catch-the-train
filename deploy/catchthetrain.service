@@ -4,12 +4,14 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-EnvironmentFile=/etc/catchthetrain.env
-DynamicUser=yes
+User=catchthetrain
+Group=catchthetrain
+Environment=DB_PATH=/var/lib/catchthetrain/catchthetrain.db
+EnvironmentFile=/etc/catchthetrain/env
 StateDirectory=catchthetrain
 WorkingDirectory=/var/lib/catchthetrain
 ExecStart=/opt/catchthetrain/.venv/bin/python -m catchthetrain
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 [Install]
