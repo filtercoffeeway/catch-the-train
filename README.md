@@ -2,47 +2,26 @@
 
 Telegram bot for drive + BART commuters. It tells you when to leave home (morning)
 and the office (evening), and nudges you on your office days when it's time to go.
-Anyone can message the bot, set up their own commute in chat, and get their own alerts.
 
 Trains come from BART's Legacy API. Drive and walk times are the minutes each user
 enters during setup.
 
-## How it works
-```
- Telegram  ◄── long polling (outbound HTTPS only) ──  bot process (Raspberry Pi / VM)
-                                                        ├─ handlers: commands, buttons, setup wizard
-                                                        ├─ alert job: every minute, per user
-                                                        ├─ planner  ──► BART schedule + real-time API
-                                                        └─ SQLite: one row per user (settings + today's state)
-```
-- **Polling, not webhooks**: the bot asks Telegram for new messages, so it needs no
-  public IP, open port or TLS certificate.
-- **Per-user settings** (`Profile`): home stations with a drive time for each, office
-  station, walks, buffer, commute days, and morning/evening alert windows. Collected
-  by a chat wizard and stored as JSON in SQLite.
-- **Alerts cost nothing outside their windows**: the alert job runs every minute, but
-  only users on a commute day and inside an alert window get a BART lookup. A user
-  stops being checked for the rest of that window once they tap **I'm leaving** or
-  **Not today**.
+**There are two ways to use it:**
 
-## Layout
-```
-catchthetrain/
-  __main__.py   entry point: wires everything together
-  config.py     bot-wide env config (token, BART key, DB path, user cap)
-  profile.py    a user's commute settings + answer parsers
-  settings.py   setup wizard questions and the /settings summary
-  stations.py   BART station catalog, lookup by code or name
-  bart.py       BART schedule + real-time departures client
-  planner.py    leave-by calculations for both directions
-  alerts.py     which alert windows are open, and when an alert is due
-  state.py      SQLite store: profiles, car location, today's alert progress
-  bot.py        commands, buttons, wizard, alert job, message formatting
-tests/
-deploy/         systemd unit
-```
+| | What you do | Who it's for |
+|---|---|---|
+| **[Use the hosted bot](#option-1-use-the-hosted-bot)** | Open [@CatchTheTrainBot](https://t.me/CatchTheTrainBot) in Telegram and send `/start`. Nothing to install. | Anyone who just wants the alerts |
+| **[Host your own copy](#option-2-host-your-own-copy)** | Create your own bot with @BotFather and run this code on your machine or a server. | Developers, or if the hosted bot is full |
 
-## Using the bot
+---
+
+# Option 1: Use the hosted bot
+
+Open **[t.me/CatchTheTrainBot](https://t.me/CatchTheTrainBot)** in Telegram and send `/start`.
+That's it: no account, install or API key needed. Each user sets up their own commute
+in chat and gets their own alerts.
+
+## Setup
 Send `/start`. The bot asks for:
 1. Home station(s): where you drive and park, up to 3 (e.g. `Union City, Warm Springs`)
 2. Office station
@@ -88,7 +67,15 @@ alerts are turned off.
 - **To home**: leave office = train departure − office-to-platform walk − buffer;
   home ETA = train arrival + walk to car + drive time.
 
-## Running it
+---
+
+# Option 2: Host your own copy
+
+Skip this section if you're using the hosted bot. Hosting your own copy means running a
+**separate bot** under your own Telegram token; it doesn't share users or data with
+@CatchTheTrainBot. Your users talk to your bot, and everything above works the same.
+
+## Run it on your machine
 1. **Telegram**: message @BotFather → `/newbot` → copy the token.
 2. **BART** (optional): register your own key at api.bart.gov (defaults to the public key).
 3. `cp .env.example .env`, set `TELEGRAM_TOKEN`, then `make venv && make run`.
@@ -101,6 +88,7 @@ alerts are turned off.
 | `MAX_USERS` | `50` | New sign-ups are refused beyond this many users |
 
 Only run one copy per bot token: Telegram lets only one process poll at a time.
+The bot keeps running only while your machine is on; to keep it up 24/7, deploy it to a server (below).
 
 ## Deploy to a server (Raspberry Pi / any Debian-style Linux)
 `deploy/deploy.sh <host>` installs and runs the bot as a systemd service over ssh. `<host>` is
@@ -147,3 +135,38 @@ ssh myserver journalctl -u catchthetrain -f                 # follow live while 
   then `ssh myserver sudo systemctl restart catchthetrain`. The deploy script never rewrites that file.
 
 Back up `catchthetrain.db` to keep users' settings.
+
+## How it works
+```
+ Telegram  ◄── long polling (outbound HTTPS only) ──  bot process (Raspberry Pi / VM)
+                                                        ├─ handlers: commands, buttons, setup wizard
+                                                        ├─ alert job: every minute, per user
+                                                        ├─ planner  ──► BART schedule + real-time API
+                                                        └─ SQLite: one row per user (settings + today's state)
+```
+- **Polling, not webhooks**: the bot asks Telegram for new messages, so it needs no
+  public IP, open port or TLS certificate.
+- **Per-user settings** (`Profile`): home stations with a drive time for each, office
+  station, walks, buffer, commute days, and morning/evening alert windows. Collected
+  by a chat wizard and stored as JSON in SQLite.
+- **Alerts cost nothing outside their windows**: the alert job runs every minute, but
+  only users on a commute day and inside an alert window get a BART lookup. A user
+  stops being checked for the rest of that window once they tap **I'm leaving** or
+  **Not today**.
+
+## Layout
+```
+catchthetrain/
+  __main__.py   entry point: wires everything together
+  config.py     bot-wide env config (token, BART key, DB path, user cap)
+  profile.py    a user's commute settings + answer parsers
+  settings.py   setup wizard questions and the /settings summary
+  stations.py   BART station catalog, lookup by code or name
+  bart.py       BART schedule + real-time departures client
+  planner.py    leave-by calculations for both directions
+  alerts.py     which alert windows are open, and when an alert is due
+  state.py      SQLite store: profiles, car location, today's alert progress
+  bot.py        commands, buttons, wizard, alert job, message formatting
+tests/
+deploy/         systemd unit
+```
